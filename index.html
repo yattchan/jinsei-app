@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="人生OS">
+<meta name="theme-color" content="#f7f4ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1a1f" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>人生OS</title>
+<style>
+:root {
+  --bg: #f7f4ef; --card: #ffffff; --ink: #24222a; --sub: #6e6a75; --line: #e6e1d9;
+  --accent: #d9822b; --accent-ink: #ffffff; --soon: #fff3e2; --ok: #3c8a5a; --muted: #efebe4;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1b1a1f; --card: #26242c; --ink: #ece9f1; --sub: #a29eaa; --line: #37343e;
+    --accent: #f0a050; --accent-ink: #1b1a1f; --soon: #3a2e22; --ok: #7cc79a; --muted: #2f2c35; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  -webkit-text-size-adjust: 100%; }
+main { max-width: 560px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 96px); }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+h1 { font-size: 22px; margin: 0; }
+.countdown { font-size: 13px; color: var(--sub); text-align: right; }
+.countdown b { color: var(--accent); font-size: 16px; }
+h2 { font-size: 15px; margin: 22px 0 8px; color: var(--sub); font-weight: 600; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+.card.soon { background: var(--soon); border-color: transparent; }
+.title { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.next { font-size: 14px; color: var(--sub); margin-top: 6px; line-height: 1.5; }
+.row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+button { font: inherit; border: none; border-radius: 10px; padding: 8px 12px; background: var(--muted); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.small { font-size: 13px; padding: 6px 10px; }
+button:disabled { opacity: .5; }
+.empty { color: var(--sub); font-size: 14px; padding: 4px 2px; }
+.done-list { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }
+details { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 10px; }
+summary { padding: 14px; font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; }
+summary::-webkit-details-marker { display: none; }
+summary .n { color: var(--sub); font-weight: 400; }
+.item { border-top: 1px solid var(--line); padding: 12px 14px; }
+.item .title { font-size: 15px; font-weight: 500; }
+textarea, input[type=text], input[type=password] { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
+textarea { min-height: 88px; resize: vertical; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.chip { padding: 6px 12px; border-radius: 999px; background: var(--muted); font-size: 14px; }
+.chip[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+.memo { font-size: 14px; line-height: 1.6; padding: 8px 0; border-top: 1px solid var(--line); white-space: pre-wrap; }
+.memo time { color: var(--sub); font-size: 12px; display: block; }
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line);
+  display: flex; justify-content: center; gap: 8px; padding: 10px 16px calc(env(safe-area-inset-bottom) + 10px); }
+.tabbar button { flex: 1; max-width: 180px; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 80px); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.note { font-size: 13px; color: var(--sub); line-height: 1.6; }
+a { color: var(--accent); }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <!-- 初回設定 -->
+  <section id="setup" hidden>
+    <h1>人生OS</h1>
+    <p class="note">最初の1回だけ設定します。トークンはこのスマホの中にだけ保存され、ほかには送られません（GitHub との通信だけに使います）。</p>
+    <h2>リポジトリ</h2>
+    <input id="repo" type="text" value="yattchan/jinsei" autocapitalize="off" autocorrect="off">
+    <h2>GitHub トークン</h2>
+    <input id="token" type="password" placeholder="github_pat_..." autocapitalize="off" autocorrect="off">
+    <div class="row"><button class="primary" id="save-setup">はじめる</button></div>
+    <p class="note" id="setup-error"></p>
+  </section>
+
+  <!-- ホーム -->
+  <section id="home" hidden>
+    <header>
+      <h1>人生OS</h1>
+      <div class="countdown" id="countdown"></div>
+    </header>
+
+    <h2>🔜 近いうち</h2>
+    <div id="soon"></div>
+
+    <h2>🎉 この1週間で片付いたこと</h2>
+    <div class="card"><div id="done"></div></div>
+
+    <h2>📦 ほかのもの</h2>
+    <div id="groups"></div>
+
+    <p class="note" style="margin-top:24px">
+      <a id="gh-link" href="#" target="_blank" rel="noopener">GitHub で開く</a> ・
+      <a href="#" id="reset">設定をやり直す</a>
+    </p>
+  </section>
+
+  <!-- 追加 -->
+  <section id="add" hidden>
+    <h1>追加</h1>
+    <h2>何をする？</h2>
+    <input id="add-title" type="text" placeholder="例：机の配線を整理する">
+    <div class="chips" id="add-kind">
+      <button class="chip" data-kind="" aria-pressed="true">ふつう</button>
+      <button class="chip" data-kind="近いうち" aria-pressed="false">近いうち</button>
+      <button class="chip" data-kind="制作" aria-pressed="false">制作</button>
+      <button class="chip" data-kind="いつか" aria-pressed="false">いつか</button>
+    </div>
+    <h2>次の一歩（任意）</h2>
+    <input id="add-next" type="text" placeholder="気力ゼロの日でもできるくらい小さく">
+    <div class="row"><button class="primary" id="add-save">追加する</button><button data-go="home">やめる</button></div>
+  </section>
+
+  <!-- メモ -->
+  <section id="memo" hidden>
+    <h1>メモ</h1>
+    <p class="note">思ったことを何でも。整理しなくていい。保存すると GitHub に記録され、彩に「メモ整理して」と言えばタスクや知見に振り分けてくれます。</p>
+    <textarea id="memo-text" placeholder="なんでも"></textarea>
+    <div class="row"><button class="primary" id="memo-save">保存</button></div>
+    <h2>未整理のメモ <span id="memo-count"></span></h2>
+    <div id="memo-list"></div>
+  </section>
+</main>
+
+<nav class="tabbar" id="tabbar" hidden>
+  <button data-go="home">ホーム</button>
+  <button data-go="memo" id="tab-memo">メモ</button>
+  <button class="primary" data-go="add">＋ 追加</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+const DIGEST = "ダイジェスト";
+const SOON = "近いうち";
+const INBOX = "inbox.md";
+const $ = (s) => document.querySelector(s);
+
+let cfg = loadCfg();
+let openIssues = [];
+
+function loadCfg() {
+  try { return JSON.parse(localStorage.getItem("jinsei-cfg")) || null; } catch { return null; }
+}
+function saveCfg(c) {
+  try { localStorage.setItem("jinsei-cfg", JSON.stringify(c)); } catch {}
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${cfg.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(opts.body ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+  if (!res.ok) {
+    const err = new Error(`${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.status === 204 ? null : res.json();
+}
+const repoPath = (p = "") => `/repos/${cfg.repo}${p}`;
+
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function show(id) {
+  for (const s of ["setup", "home", "add", "memo"]) $("#" + s).hidden = s !== id;
+  $("#tabbar").hidden = id === "setup";
+  window.scrollTo(0, 0);
+  if (id === "memo") loadMemos();
+}
+
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const cleanTitle = (t) => t.replace(/^\[[^\]]+\]\s*/, "");
+const labelsOf = (i) => i.labels.map((l) => l.name);
+
+// ---------- ホーム ----------
+
+async function loadHome() {
+  $("#gh-link").href = `https://github.com/${cfg.repo}/issues`;
+  const since = new Date(Date.now() - 7 * 864e5).toISOString();
+  const [open, closed, milestones] = await Promise.all([
+    api(repoPath("/issues?state=open&per_page=100")),
+    api(repoPath(`/issues?state=closed&since=${since}&per_page=100`)),
+    api(repoPath("/milestones?state=open")),
+  ]);
+  openIssues = open.filter((i) => !i.pull_request && !labelsOf(i).includes(DIGEST));
+
+  renderCountdown(milestones);
+  renderDone(closed.filter((i) => !i.pull_request && !labelsOf(i).includes(DIGEST) && i.closed_at >= since));
+  renderGroups();
+  await renderSoon();
+  refreshMemoBadge();
+}
+
+function renderCountdown(milestones) {
+  const today = new Date(new Date().toDateString());
+  const parts = milestones.filter((m) => m.due_on).map((m) => {
+    const due = new Date(m.due_on.slice(0, 10) + "T00:00:00");
+    const days = Math.round((due - today) / 864e5);
+    return `${esc(m.title)}まで <b>${days}</b> 日`;
+  });
+  $("#countdown").innerHTML = parts.join("<br>");
+}
+
+function renderDone(items) {
+  $("#done").innerHTML = items.length
+    ? `<ul class="done-list">${items.map((i) => `<li>${esc(cleanTitle(i.title))}</li>`).join("")}</ul>`
+    : `<div class="empty">なし。休めた週もいい週。</div>`;
+}
+
+async function nextStepOf(issue) {
+  if (!issue.comments) return "";
+  const comments = await api(repoPath(`/issues/${issue.number}/comments?per_page=100`));
+  const hit = comments.reverse().find((c) => c.body.includes("次の一歩"));
+  if (!hit) return "";
+  return hit.body.replace(/\*\*次の一歩[^*]*\*\*[：:]?\s*/, "").split("\n")[0];
+}
+
+async function renderSoon() {
+  const soon = openIssues.filter((i) => labelsOf(i).includes(SOON));
+  const box = $("#soon");
+  if (!soon.length) { box.innerHTML = `<div class="card"><div class="empty">なし。気にしなくていい。</div></div>`; return; }
+  const steps = await Promise.all(soon.map(nextStepOf));
+  box.innerHTML = soon.map((i, k) => `
+    <div class="card soon">
+      <div class="title">${esc(cleanTitle(i.title))}</div>
+      ${steps[k] ? `<div class="next">次の一歩：${esc(steps[k])}</div>` : ""}
+      ${actions(i, true)}
+    </div>`).join("");
+  if (soon.length > 3) box.insertAdjacentHTML("beforeend", `<p class="note">${soon.length}件あるので、どれか外してもいい。</p>`);
+}
+
+function renderGroups() {
+  const rest = openIssues.filter((i) => !labelsOf(i).includes(SOON));
+  const groups = [
+    ["🎨 制作", rest.filter((i) => labelsOf(i).includes("制作"))],
+    ["📝 ふつう", rest.filter((i) => !labelsOf(i).includes("制作") && !labelsOf(i).includes("いつか"))],
+    ["🌙 いつか", rest.filter((i) => !labelsOf(i).includes("制作") && labelsOf(i).includes("いつか"))],
+  ];
+  $("#groups").innerHTML = groups.map(([name, items]) => `
+    <details>
+      <summary>${name}<span class="n">${items.length}件</span></summary>
+      ${items.map((i) => `<div class="item"><div class="title">${esc(cleanTitle(i.title))}</div>${actions(i, false)}</div>`).join("")
+        || `<div class="item empty">なし</div>`}
+    </details>`).join("");
+}
+
+function actions(issue, isSoon) {
+  const n = issue.number;
+  return `<div class="row">
+    <button class="small primary" data-act="done" data-n="${n}">✓ 終わった</button>
+    <button class="small" data-act="${isSoon ? "unsoon" : "soon"}" data-n="${n}">${isSoon ? "近いうちから外す" : "近いうちに入れる"}</button>
+    <button class="small" data-act="step" data-n="${n}">次の一歩</button>
+    <button class="small" data-act="drop" data-n="${n}">やめる</button>
+  </div>`;
+}
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-act]");
+  if (!b) return;
+  const n = Number(b.dataset.n);
+  const act = b.dataset.act;
+  try {
+    if (act === "done" || act === "drop") {
+      if (b.dataset.confirm !== "1") {
+        b.dataset.confirm = "1";
+        b.textContent = act === "done" ? "もう一度押すと完了" : "もう一度押すと取りやめ";
+        return;
+      }
+      b.disabled = true;
+      await api(repoPath(`/issues/${n}`), { method: "PATCH",
+        body: JSON.stringify({ state: "closed", state_reason: act === "done" ? "completed" : "not_planned" }) });
+      toast(act === "done" ? "おつかれさま 🎉" : "片付けた。それでいい。");
+    } else if (act === "soon") {
+      const count = openIssues.filter((i) => labelsOf(i).includes(SOON)).length;
+      if (count >= 3 && b.dataset.confirm !== "1") {
+        b.dataset.confirm = "1";
+        b.textContent = "もう3件あるけど入れる？";
+        return;
+      }
+      await api(repoPath(`/issues/${n}/labels`), { method: "POST", body: JSON.stringify({ labels: [SOON] }) });
+      toast("近いうちに入れた");
+    } else if (act === "unsoon") {
+      await api(repoPath(`/issues/${n}/labels/${encodeURIComponent(SOON)}`), { method: "DELETE" });
+      toast("外した");
+    } else if (act === "step") {
+      const step = prompt("次の一歩（小さく）");
+      if (!step) return;
+      await api(repoPath(`/issues/${n}/comments`), { method: "POST", body: JSON.stringify({ body: `**次の一歩**：${step}` }) });
+      toast("書いた");
+    }
+    await loadHome();
+  } catch (err) {
+    toast(`うまくいかなかった（${err.message}）`);
+  }
+});
+
+// ---------- 追加 ----------
+
+let addKind = "";
+$("#add-kind").addEventListener("click", (e) => {
+  const c = e.target.closest(".chip");
+  if (!c) return;
+  addKind = c.dataset.kind;
+  for (const x of document.querySelectorAll("#add-kind .chip")) x.setAttribute("aria-pressed", x === c);
+});
+
+$("#add-save").addEventListener("click", async () => {
+  const title = $("#add-title").value.trim();
+  if (!title) return;
+  const prefix = { "制作": "[制作]", "いつか": "[いつか]" }[addKind] || "[行動]";
+  const btn = $("#add-save");
+  btn.disabled = true;
+  try {
+    const issue = await api(repoPath("/issues"), { method: "POST", body: JSON.stringify({
+      title: `${prefix} ${title}`,
+      body: "スマホの人生OSアプリから追加。",
+      labels: addKind ? [addKind] : [],
+    }) });
+    const next = $("#add-next").value.trim();
+    if (next) await api(repoPath(`/issues/${issue.number}/comments`), { method: "POST", body: JSON.stringify({ body: `**次の一歩**：${next}` }) });
+    $("#add-title").value = "";
+    $("#add-next").value = "";
+    toast("頭から出せた");
+    show("home");
+    await loadHome();
+  } catch (err) {
+    toast(`追加できなかった（${err.message}）`);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------- メモ（inbox.md） ----------
+
+const b64decode = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, "")), (c) => c.charCodeAt(0)));
+const b64encode = (s) => btoa(Array.from(new TextEncoder().encode(s), (b) => String.fromCharCode(b)).join(""));
+
+async function getInbox() {
+  try {
+    const f = await api(repoPath(`/contents/${INBOX}`));
+    return { text: b64decode(f.content), sha: f.sha };
+  } catch (err) {
+    if (err.status === 404) return { text: "", sha: null };
+    throw err;
+  }
+}
+
+// 「- YYYY-MM-DD HH:MM 本文」で始まる行と、その下の字下げ行を1件とする
+function parseMemos(text) {
+  const memos = [];
+  for (const line of text.split("\n")) {
+    const m = line.match(/^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) (.*)$/);
+    if (m) memos.push({ at: m[1], body: m[2] });
+    else if (memos.length && line.startsWith("  ")) memos[memos.length - 1].body += "\n" + line.slice(2);
+  }
+  return memos;
+}
+
+function stamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+async function loadMemos() {
+  const box = $("#memo-list");
+  try {
+    const memos = parseMemos((await getInbox()).text);
+    $("#memo-count").textContent = memos.length ? `（${memos.length}件）` : "";
+    $("#tab-memo").textContent = memos.length ? `メモ ${memos.length}` : "メモ";
+    box.innerHTML = memos.length
+      ? memos.slice().reverse().map((m) => `<div class="memo"><time>${esc(m.at)}</time>${esc(m.body)}</div>`).join("")
+      : `<div class="empty">なし。全部整理済み。</div>`;
+  } catch (err) {
+    box.innerHTML = `<div class="empty">読めなかった（${err.message}）</div>`;
+  }
+}
+
+async function refreshMemoBadge() {
+  try {
+    const n = parseMemos((await getInbox()).text).length;
+    $("#tab-memo").textContent = n ? `メモ ${n}` : "メモ";
+  } catch {}
+}
+
+$("#memo-save").addEventListener("click", async () => {
+  const body = $("#memo-text").value.trim();
+  if (!body) return;
+  const btn = $("#memo-save");
+  btn.disabled = true;
+  const entry = `- ${stamp()} ${body.split("\n").join("\n  ")}\n`;
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { text, sha } = await getInbox();
+      const base = text || "# メモ（未整理）\n\n思ったことを何でも書く場所。整理したらここから消す（履歴は Git に残る）。\n\n---\n\n";
+      const next = base.endsWith("\n") ? base + entry : base + "\n" + entry;
+      try {
+        await api(repoPath(`/contents/${INBOX}`), { method: "PUT", body: JSON.stringify({
+          message: "memo: add from app", content: b64encode(next), ...(sha ? { sha } : {}),
+        }) });
+        break;
+      } catch (err) {
+        if (err.status !== 409 || attempt === 1) throw err;
+      }
+    }
+    $("#memo-text").value = "";
+    toast("保存した");
+    await loadMemos();
+  } catch (err) {
+    toast(`保存できなかった（${err.message}）`);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------- 画面切り替え・設定 ----------
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-go]");
+  if (b) show(b.dataset.go);
+});
+
+$("#save-setup").addEventListener("click", async () => {
+  cfg = { repo: $("#repo").value.trim(), token: $("#token").value.trim() };
+  $("#setup-error").textContent = "確認中…";
+  try {
+    await api(repoPath());
+    saveCfg(cfg);
+    $("#setup-error").textContent = "";
+    show("home");
+    await loadHome();
+  } catch (err) {
+    $("#setup-error").textContent = `つながらなかった（${err.message}）。リポジトリ名とトークンを確かめてください。`;
+  }
+});
+
+$("#reset").addEventListener("click", (e) => {
+  e.preventDefault();
+  try { localStorage.removeItem("jinsei-cfg"); } catch {}
+  cfg = null;
+  show("setup");
+});
+
+// アプリに戻ってきたら最新にする
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && cfg && !$("#home").hidden) loadHome().catch(() => {});
+});
+
+if (cfg) {
+  show("home");
+  loadHome().catch((err) => {
+    toast(`読めなかった（${err.message}）`);
+    if (err.status === 401) show("setup");
+  });
+} else {
+  show("setup");
+}
+</script>
+</body>
+</html>
