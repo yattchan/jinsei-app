@@ -1,5 +1,5 @@
 // 人生OS デスクトップ版。画面はスマホ版と同じ index.html を使い、GitHub へは PC の gh 経由でつなぐ。
-const { app, BrowserWindow, ipcMain, shell, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const { execFile } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -14,10 +14,6 @@ const configPath = () => path.join(app.getPath("userData"), "config.json");
 
 function readConfig() {
   try { return JSON.parse(fs.readFileSync(configPath(), "utf8")); } catch { return {}; }
-}
-function writeConfig(c) {
-  fs.mkdirSync(path.dirname(configPath()), { recursive: true });
-  fs.writeFileSync(configPath(), JSON.stringify(c, null, 2));
 }
 const repo = () => readConfig().repo || DEFAULT_REPO;
 
@@ -48,27 +44,17 @@ ipcMain.handle("open", (_e, url) => {
   if (/^https:\/\//.test(url)) shell.openExternal(url);
 });
 
-// スマホ用トークンを確かめてから QR にする。トークンは Windows の資格情報で暗号化して保存する
-ipcMain.handle("phone-qr", async (_e, token) => {
-  const res = await fetch(`https://api.github.com/repos/${repo()}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
+// PC の gh にログイン済みの鍵をそのまま QR に入れる（ユーザーに鍵を作らせないため）
+ipcMain.handle("phone-qr", () => new Promise((resolve) => {
+  execFile(GH, ["auth", "token"], { windowsHide: true }, async (err, stdout) => {
+    const token = String(stdout).trim();
+    if (err || !token) {
+      resolve({ error: "PC の GitHub ログインが見つからなかった。Claude に「gh にログインして」と頼んでください。" });
+      return;
+    }
+    resolve({ dataUrl: await qrFor(token) });
   });
-  if (!res.ok) return { error: `このトークンでは ${repo()} が読めなかった（${res.status}）。Repository access で jinsei を選んだか確かめてください。` };
-  if (safeStorage.isEncryptionAvailable()) {
-    writeConfig({ ...readConfig(), phoneToken: safeStorage.encryptString(token).toString("base64") });
-  }
-  return { dataUrl: await qrFor(token) };
-});
-
-ipcMain.handle("saved-qr", async () => {
-  const saved = readConfig().phoneToken;
-  if (!saved || !safeStorage.isEncryptionAvailable()) return {};
-  try {
-    return { dataUrl: await qrFor(safeStorage.decryptString(Buffer.from(saved, "base64"))) };
-  } catch {
-    return {};
-  }
-});
+}));
 
 function createWindow() {
   const win = new BrowserWindow({

@@ -73,7 +73,9 @@ a { color: var(--accent); }
   <!-- 初回設定 -->
   <section id="setup" hidden>
     <h1>人生OS</h1>
-    <p class="note">最初の1回だけ設定します。トークンはこのスマホの中にだけ保存され、ほかには送られません（GitHub との通信だけに使います）。</p>
+    <div class="card soon"><div class="title">PC の人生OSで「📱 スマホ」→「QR を出す」を押して、カメラで読んでください。</div>
+      <div class="next">それだけで設定が終わります。下の入力は使わなくて大丈夫。</div></div>
+    <p class="note">（手で設定する場合）トークンはこのスマホの中にだけ保存され、GitHub との通信だけに使います。</p>
     <h2>リポジトリ</h2>
     <input id="repo" type="text" value="yattchan/jinsei" autocapitalize="off" autocorrect="off">
     <h2>GitHub トークン</h2>
@@ -133,15 +135,12 @@ a { color: var(--accent); }
   <!-- スマホ接続（デスクトップ版のみ） -->
   <section id="phone" hidden>
     <h1>スマホを接続</h1>
-    <p class="note">スマホのカメラで QR を読むと、人生OSアプリが設定済みの状態で開きます。開いたら「ホーム画面に追加」すればアプリになります。</p>
-    <div id="phone-qr" class="card" style="text-align:center" hidden>
+    <p class="note">ボタンを押して、スマホのカメラで QR を読むだけ。設定済みの人生OSが開くので、Safari の共有ボタン →「ホーム画面に追加」でアプリになります。</p>
+    <div class="row"><button class="primary" id="phone-make">QR を出す</button></div>
+    <div id="phone-qr" class="card" style="text-align:center;margin-top:12px" hidden>
       <img id="phone-qr-img" alt="スマホ用QRコード" style="width:240px;height:240px;image-rendering:pixelated">
-      <p class="note">この QR にはスマホ用の鍵が入っています。人に見せないでください。</p>
+      <p class="note">この QR には GitHub の鍵が入っています。人に見せない・配信や画面共有中に出さないでください。<br><span id="phone-left"></span></p>
     </div>
-    <h2>スマホ用トークン</h2>
-    <p class="note">スマホは PC の gh を使えないので、jinsei だけを触れる専用の鍵を1つ作ります。<a href="#" id="phone-token-link">作成ページを開く</a>（Repository access で jinsei だけを選んで Generate）。</p>
-    <input id="phone-token" type="password" placeholder="github_pat_..." autocapitalize="off" autocorrect="off">
-    <div class="row"><button class="primary" id="phone-make">QR を作る</button></div>
     <p class="note" id="phone-error"></p>
   </section>
 </main>
@@ -502,33 +501,35 @@ $("#reset").addEventListener("click", (e) => {
 
 // ---------- スマホ接続（デスクトップ版） ----------
 
-async function loadPhone() {
-  const saved = await desktop.savedQr();
-  if (saved.dataUrl) {
-    $("#phone-qr-img").src = saved.dataUrl;
-    $("#phone-qr").hidden = false;
-  }
+// QR は60秒だけ出して消す（鍵が入っているので出しっぱなしにしない）
+let qrTimer = null;
+function hideQr() {
+  clearInterval(qrTimer);
+  $("#phone-qr").hidden = true;
+  $("#phone-qr-img").removeAttribute("src");
 }
 
-$("#phone-token-link").addEventListener("click", (e) => {
-  e.preventDefault();
-  desktop.openExternal("https://github.com/settings/personal-access-tokens/new?name=" +
-    encodeURIComponent("人生OSアプリ") + "&description=jinsei-app&expires_in=none&issues=write&contents=write");
-});
+function loadPhone() {
+  hideQr();
+  $("#phone-error").textContent = "";
+}
 
 $("#phone-make").addEventListener("click", async () => {
-  const token = $("#phone-token").value.trim();
-  if (!token) return;
-  $("#phone-error").textContent = "確認中…";
-  const r = await desktop.phoneQr(token);
+  const r = await desktop.phoneQr();
   if (r.error) {
     $("#phone-error").textContent = r.error;
     return;
   }
-  $("#phone-error").textContent = "";
-  $("#phone-token").value = "";
   $("#phone-qr-img").src = r.dataUrl;
   $("#phone-qr").hidden = false;
+  let left = 60;
+  $("#phone-left").textContent = `あと ${left} 秒で消えます`;
+  clearInterval(qrTimer);
+  qrTimer = setInterval(() => {
+    left -= 1;
+    $("#phone-left").textContent = `あと ${left} 秒で消えます`;
+    if (left <= 0 || $("#phone").hidden) hideQr();
+  }, 1000);
 });
 
 // ---------- 起動 ----------
